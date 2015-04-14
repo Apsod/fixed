@@ -5,7 +5,16 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE OverloadedLists #-}
 
-module Data.Vector.Fixed where
+module Data.Vector.Fixed
+       (Vector
+       ,getSize
+       ,tail
+       ,head
+       ,uncons
+       ,split
+       ,separate
+       ,(!)
+       ) where
 
 import GHC.Exts (IsList, fromList, toList, Item)
 import GHC.TypeLits
@@ -54,7 +63,7 @@ instance KnownNat n => IsList (Vector n a) where
                                                             "(", show nVal, ")",
                                                             " in Fixed.fromList"])
 
-intNat :: (KnownNat n) => Proxy n -> Int
+intNat :: KnownNat n => Proxy n -> Int
 intNat = fromIntegral . natVal
 
 getSize :: KnownNat n => Vector n a -> Int
@@ -71,9 +80,6 @@ tail = Vector . Vector.unsafeTail . forgetSize
 
 head :: (KnownNat n) => Vector (n+1) a -> a
 head = Vector.unsafeHead . forgetSize
-
-cons :: (KnownNat n) => a -> Vector n a -> Vector (n+1) a
-cons x = Vector . Vector.cons x . forgetSize
 
 uncons :: (KnownNat n) => Vector (n+1) a -> (a, Vector n a)
 uncons = (head &&& tail)
