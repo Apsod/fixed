@@ -45,53 +45,59 @@ import Control.Arrow ((***),(&&&))
 newtype Vector (n :: Nat) a = Vector {forgetSize :: Vector.Vector a}
                             deriving(Show, Eq, Ord, Functor, Foldable, Traversable, NFData)
 
-instance KnownNat n => Applicative (Vector n) where
+instance (KnownNat n) => Applicative (Vector n) where
   pure = Vector . Vector.replicate (intNat (Proxy :: Proxy n))
   Vector fs <*> Vector xs = Vector $ Vector.zipWith ($) fs xs
 
-instance KnownNat n => Distributive (Vector n) where
+instance (KnownNat n) => Distributive (Vector n) where
   distribute xs = generate (\ix -> (flip unsafeIndex ix) <$> xs)
 
-instance KnownNat n => IsList (Vector n a) where
+instance (KnownNat n) => Monad (Vector n) where
+  return = pure
+  v >>= f = let v' = f <$> v
+            in generate (\ix -> unsafeIndex (unsafeIndex v' ix) ix)
+
+instance (KnownNat n) => IsList (Vector n a) where
   type Item (Vector n a) = a
   toList   = Vector.toList . forgetSize
   fromList = let nVal = intNat (Proxy :: Proxy n)
              in Vector . Vector.fromList . (\xs -> if hasLength nVal xs
                                                    then xs
                                                    else error $ Prelude.concat
-                                                        ["length of list ",
-                                                         " does not match size of vector ",
+                                                        ["length of list does not match size of vector ",
                                                          "(", show nVal, ")",
                                                          " in Data.Vector.Fixed.fromList"])
 
+
+
 hasLength :: Int -> [a] -> Bool
 hasLength n xs = let (prefix, suffix) = Prelude.splitAt n xs
-                 in null suffix && length prefix == n 
+                 in null suffix && length prefix == n
 
-intNat :: KnownNat n => Proxy n -> Int
+intNat :: (KnownNat n) => Proxy n -> Int
 intNat = fromIntegral . natVal
 
 empty :: Vector 0 a
 empty = Vector $ Vector.empty
 
-getSize :: KnownNat n => Vector n a -> Int
+getSize :: (KnownNat n) => Vector n a -> Int
 getSize (_ :: Vector n a)  = intNat (Proxy :: Proxy n)
 
-generate :: forall n. KnownNat n => forall a. (Int -> a) -> Vector n a
+generate :: forall n. (KnownNat n) => forall a. (Int -> a) -> Vector n a
 generate = Vector . Vector.generate (intNat (Proxy :: Proxy n))
 
-iterate :: forall n. KnownNat n => forall a. (a -> a) -> a -> Vector n a
+iterate :: forall n. (KnownNat n) => forall a. (a -> a) -> a -> Vector n a
 iterate f = Vector . Vector.iterateN (intNat (Proxy :: Proxy n)) f
 
 unsafeIndex :: Vector n a -> Int -> a
-unsafeIndex v = Vector.unsafeIndex (forgetSize v)
+unsafeIndex = Vector.unsafeIndex . forgetSize
 
 (!) :: Vector n a -> Int -> a
 v ! ix = (Vector.!) (forgetSize v) ix
 
-(!?) :: KnownNat n => Vector n a -> Int -> Maybe a
+(!?) :: (KnownNat n) => Vector n a -> Int -> Maybe a
 v !? ix = if 0 <= ix && ix < getSize v
-          then Just $ Vector.unsafeIndex (forgetSize v) ix
+          then Just $ unsafeIndex v ix
           else Nothing
 
 tail :: Vector (1+n) a -> Vector n a
