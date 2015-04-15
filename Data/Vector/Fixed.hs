@@ -9,6 +9,8 @@
 
 module Data.Vector.Fixed
        (Vector
+       ,sizeAgnostic
+       ,forgetSize
        ,empty
        ,getSize
        ,generate
@@ -24,7 +26,14 @@ module Data.Vector.Fixed
        ,takeTo
        ,dropTo
        ,split
+       ,(++)
        ,separate
+       ,flatten
+       ,backpermute
+       ,imap
+       ,reverse
+       ,fromList
+       ,toList
        ) where
 
 import GHC.Exts (IsList, fromList, toList, Item)
@@ -33,13 +42,13 @@ import Data.Proxy (Proxy(..))
 
 import qualified Data.Vector as Vector
 
-import Control.DeepSeq
+import Control.DeepSeq (NFData)
 import Data.Foldable (Foldable)
 import Data.Traversable (Traversable)
 import Control.Applicative (Applicative, (<$>), pure, (<*>))
 import Data.Distributive (Distributive, distribute)
 
-import Prelude hiding (iterate, tail, head, init, last)
+import Prelude hiding (iterate, tail, head, init, last, (++), reverse)
 import Control.Arrow ((***),(&&&))
 
 newtype Vector (n :: Nat) a = Vector {forgetSize :: Vector.Vector a}
@@ -47,7 +56,7 @@ newtype Vector (n :: Nat) a = Vector {forgetSize :: Vector.Vector a}
 
 instance (KnownNat n) => Applicative (Vector n) where
   pure = Vector . Vector.replicate (intNat (Proxy :: Proxy n))
-  Vector fs <*> Vector xs = Vector $ Vector.zipWith ($) fs xs
+  (<*>) (Vector fs) = forgetful (Vector.zipWith ($) fs)
 
 instance (KnownNat n) => Distributive (Vector n) where
   distribute xs = generate (\ix -> (flip unsafeIndex ix) <$> xs)
@@ -68,7 +77,11 @@ instance (KnownNat n) => IsList (Vector n a) where
                                                          "(", show nVal, ")",
                                                          " in Data.Vector.Fixed.fromList"])
 
+sizeAgnostic :: (Vector.Vector a -> b) -> Vector n a -> b
+sizeAgnostic f = f . forgetSize
 
+forgetful :: (Vector.Vector a -> Vector.Vector b) -> Vector n a -> Vector m b
+forgetful f = Vector . sizeAgnostic f
 
 hasLength :: Int -> [a] -> Bool
 hasLength n xs = let (prefix, suffix) = Prelude.splitAt n xs
@@ -90,7 +103,7 @@ iterate :: forall n. (KnownNat n) => forall a. (a -> a) -> a -> Vector n a
 iterate f = Vector . Vector.iterateN (intNat (Proxy :: Proxy n)) f
 
 unsafeIndex :: Vector n a -> Int -> a
-unsafeIndex = Vector.unsafeIndex . forgetSize
+unsafeIndex = sizeAgnostic Vector.unsafeIndex
 
 (!) :: Vector n a -> Int -> a
 v ! ix = (Vector.!) (forgetSize v) ix
@@ -101,31 +114,34 @@ v !? ix = if 0 <= ix && ix < getSize v
           else Nothing
 
 tail :: Vector (1+n) a -> Vector n a
-tail = Vector . Vector.unsafeTail . forgetSize
+tail = forgetful Vector.unsafeTail
 
 head :: Vector (1+n) a -> a
-head = Vector.unsafeHead . forgetSize
+head = sizeAgnostic Vector.unsafeHead
 
 uncons :: Vector (1+n) a -> (a, Vector n a)
 uncons = (head &&& tail)
 
 init :: Vector (n+1) a -> Vector n a
-init = Vector . Vector.unsafeInit . forgetSize
+init = forgetful Vector.unsafeInit
 
 last :: Vector (n+1) a -> a
-last = Vector.unsafeLast . forgetSize
+last = sizeAgnostic Vector.unsafeLast
 
 unsnoc :: Vector (n+1) a -> (Vector n a, a)
 unsnoc = (init &&& last)
 
 takeTo :: forall m n. (KnownNat n, KnownNat m,  m <= n) => forall a. Vector n a -> Vector m a
 takeTo = let mVal = intNat (Proxy :: Proxy m)
-         in Vector . Vector.unsafeTake mVal . forgetSize
+         in forgetful (Vector.unsafeTake mVal)
 
 dropTo :: forall m n. (KnownNat n, KnownNat m, m <= n) => forall a. Vector n a -> Vector m a
 dropTo = let mVal = intNat (Proxy :: Proxy m)
              nVal = intNat (Proxy :: Proxy n)
-         in Vector . Vector.unsafeDrop (nVal - mVal) . forgetSize
+         in forgetful (Vector.unsafeDrop (nVal - mVal))
+
+(++) :: Vector n a -> Vector m a -> Vector (n + m) a
+(++) (Vector v) = forgetful (v Vector.++)
 
 split :: forall n. (KnownNat n) => forall a m. Vector (n + m) a -> (Vector n a, Vector m a)
 split (Vector v) = let nVal = intNat (Proxy :: Proxy n)
@@ -135,3 +151,15 @@ separate :: forall n m. (KnownNat n, KnownNat m) => forall a. Vector (n * m) a -
 separate (Vector v) = let mVal  = intNat (Proxy :: Proxy m)
                           chunk ix = Vector $ Vector.unsafeSlice (ix * mVal) mVal v
                       in generate chunk
+
+flatten :: Vector n (Vector m a) -> Vector (n * m) a
+flatten = forgetful (Vector.concatMap forgetSize)
+
+backpermute :: Vector n a -> Vector m Int -> Vector m a
+backpermute (Vector v) = forgetful (Vector.backpermute v)
+
+imap :: (Int -> a -> b) -> Vector n a -> Vector n b
+imap f = forgetful (Vector.imap f)
+
+reverse :: Vector n a -> Vector n a
+reverse = forgetful Vector.reverse
