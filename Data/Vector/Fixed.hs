@@ -13,9 +13,12 @@ module Data.Vector.Fixed
        ,forgetSize
        ,empty
        ,singleton
+       ,intNat
        ,getSize
        ,generate
        ,iterate
+       ,replicateM
+       ,generateM
        ,(!)
        ,(!?)
        ,tail
@@ -105,6 +108,12 @@ generate = Vector . Vector.generate (intNat (Proxy :: Proxy n))
 
 iterate :: forall n. (KnownNat n) => forall a. (a -> a) -> a -> Vector n a
 iterate f = Vector . Vector.iterateN (intNat (Proxy :: Proxy n)) f
+
+replicateM :: forall m n. (KnownNat n, Monad m, Functor m) => forall a. m a -> m (Vector n a)
+replicateM x = Vector <$> Vector.replicateM (intNat (Proxy :: Proxy n)) x
+
+generateM :: forall m n. (KnownNat n, Monad m , Functor m) => forall a. (Int -> m a) -> m (Vector n a)
+generateM f = Vector <$> Vector.generateM (intNat (Proxy :: Proxy n)) f
 
 unsafeIndex :: Vector n a -> Int -> a
 unsafeIndex = sizeAgnostic Vector.unsafeIndex

@@ -44,7 +44,7 @@ mkNet = Net . DownStar
 mkNet' :: (a -> b) -> Net 1 a b
 mkNet' f = mkNet (f . head)
 
-instance (KnownNat n) => Distributive (Net n a) where
+instance Distributive (Net n a) where
   distribute fs = mkNet (\ps -> (\f -> (runNet f ps)) <$> fs)
 
 --  A version of <*> that separates the arguments
@@ -103,17 +103,17 @@ floatOut = mkNet . lmap separate . runNet
 floatOut' :: (KnownNat m, KnownNat n) => (Vector n q -> p) -> Net m p a -> Net (m * n) q a
 floatOut' f = mkNet . lmap (fmap f . separate) . runNet
 
-pmap :: (KnownNat n, KnownNat m) => (Vector n p -> Vector m p) -> Net m p a -> Net n p a
+pmap :: (Vector n p -> Vector m p) -> Net m p a -> Net n p a
 pmap f = mkNet . lmap f . runNet
 
 errorNet :: (b -> b -> c) -> Net m w (a -> b) -> Net m w ((a,b) -> c)
 errorNet err = fmap (\f (x,y) -> err (f x) y)
 
-collectErrors :: (KnownNat m, Functor f) => (b -> b -> c) -> Net m w (a -> b) -> f (a, b) -> Net m w (f c)
+collectErrors :: (Functor f) => (b -> b -> c) -> Net m w (a -> b) -> f (a, b) -> Net m w (f c)
 collectErrors err net = let net' =  errorNet err net
                         in collect (\x -> applyNet x net')
 
-summedError :: (KnownNat m, Functor f, Foldable f, Num c) => (b -> b -> c) -> Net m w (a -> b) -> f (a, b) -> Net m w c
+summedError :: (Functor f, Foldable f, Num c) => (b -> b -> c) -> Net m w (a -> b) -> f (a, b) -> Net m w c
 summedError err net = fmap sum . collectErrors err net
 
 autoencodeError :: (a -> b -> c) -> Net m w (a -> b) -> Net m w (a -> c)
