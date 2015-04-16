@@ -12,6 +12,7 @@ module Data.Vector.Fixed
        ,sizeAgnostic
        ,forgetSize
        ,empty
+       ,singleton
        ,getSize
        ,generate
        ,iterate
@@ -92,6 +93,9 @@ intNat = fromIntegral . natVal
 
 empty :: Vector 0 a
 empty = Vector $ Vector.empty
+
+singleton :: a -> Vector 1 a
+singleton = Vector . Vector.singleton
 
 getSize :: (KnownNat n) => Vector n a -> Int
 getSize (_ :: Vector n a)  = intNat (Proxy :: Proxy n)
