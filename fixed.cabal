@@ -17,10 +17,11 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Data.Trainable
+                       Data.Trainable.Random
                        Data.Vector.Fixed
                        Data.Vector.Fixed.Linear
   -- other-modules:       
   other-extensions:    DataKinds, KindSignatures, ScopedTypeVariables, TypeOperators, TypeFamilies, OverloadedLists, GeneralizedNewtypeDeriving, DeriveTraversable
-  build-depends:       base >=4.7 && <4.8, vector >=0.10 && <0.11, deepseq >=1.3 && <1.4, distributive >=0.4 && <0.5, ad, reflection, erf, profunctors, mwc-random, hashable, containers, mtl, transformers
+  build-depends:       base >=4.7 && <4.8, vector >=0.10 && <0.11, deepseq >=1.3 && <1.4, distributive >=0.4 && <0.5, ad, reflection, erf, profunctors, mwc-random, hashable, containers, mtl, transformers, comonad, tagged 
   -- hs-source-dirs:      
   default-language:    Haskell2010

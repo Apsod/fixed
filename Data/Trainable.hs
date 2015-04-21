@@ -11,7 +11,6 @@
 
 module Data.Trainable where
 
-
 import Data.Vector.Fixed
 
 import Data.Profunctor
@@ -71,6 +70,9 @@ ab |> bc = (>>>) <$> ab <+> bc
 explode :: (KnownNat m, KnownNat n) => Net m p a -> Net (n * m) p (Vector n a)
 explode net = mkNet (\v -> let fs = separate v in runNet <$> pure net <*> fs)
 
+explode' :: (KnownNat m) => (p -> a -> b) -> Net m p (Vector m a -> Vector m b)
+explode' f = mkNet ((<*>) . fmap f) 
+
 -- A version of product that separates the arguments of each sequential step
 iterateNet :: forall n m a p. (KnownNat m, KnownNat n, Monoid a) => Proxy n -> Net m p a -> Net (n * m) p a
 iterateNet Proxy net = fmap fold $  (explode net :: Net (n * m) p (Vector n a))
@@ -97,11 +99,12 @@ fanIn = fmap manyToOne . explode
 fanIn' :: (KnownNat m, Monoid b) => (p -> a -> b) -> Net m p (Vector m a -> b)
 fanIn' f = mkNet (\ws xs -> fold (f <$> ws <*> xs))
 
-floatOut :: (KnownNat m, KnownNat n) => Net m (Vector n p) a -> Net (m * n) p a
-floatOut = mkNet . lmap separate . runNet
 
-floatOut' :: (KnownNat m, KnownNat n) => (Vector n q -> p) -> Net m p a -> Net (m * n) q a
-floatOut' f = mkNet . lmap (fmap f . separate) . runNet
+floatOut :: (KnownNat m, KnownNat n) => (Vector n q -> p) -> Net m p a -> Net (m * n) q a
+floatOut f = mkNet . lmap (fmap f . separate) . runNet
+
+floatOut' :: (KnownNat m) => (Functor f) => (Vector m q -> f p) -> DownStar f p a -> Net m q a
+floatOut' f = mkNet . lmap f . runDownStar 
 
 pmap :: (Vector n p -> Vector m p) -> Net m p a -> Net n p a
 pmap f = mkNet . lmap f . runNet

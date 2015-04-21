@@ -7,23 +7,46 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DeriveTraversable          #-}
 {-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE UndecidableInstances       #-}
 
 module Data.Vector.Fixed.Linear where
 
 import GHC.TypeLits
 
-import Data.Vector.Fixed
+import Data.Vector.Fixed as Fixed
 
 import Control.DeepSeq
 import Data.Foldable
 import Data.Traversable
 import Control.Applicative
 import Data.Monoid
+import Data.Proxy
+
+import Data.Indexed
 
 import Prelude hiding (sum, maximum)
 
 newtype Matrix (r :: Nat) (c :: Nat) a = Matrix{flattenMatrix :: Vector (r * c) a}
     deriving(Show, Eq, Ord, Functor, Foldable, Traversable, NFData)
+
+instance (KnownNat c, KnownNat (r*c)) =>  Applicative (Matrix r c) where
+  pure      = Matrix . pure
+  (Matrix fm) <*> (Matrix xm) = Matrix (fm <*> xm) 
+
+instance (KnownNat c, KnownNat (r*c)) => Indexable (Matrix r c) where
+  type Index (Matrix r c) = (Int, Int)
+  indices = let c = intNat (Proxy :: Proxy c)
+            in Matrix $ generate (\ix -> quotRem ix c)  
+  (!?) = let c = intNat (Proxy :: Proxy c)
+         in (\(Matrix v) (rix,cix) -> (Fixed.!?) v (c*rix + cix))  
+
+(!) :: forall c. KnownNat c => forall r a. Matrix r c a -> (Int, Int) -> a
+(!) = let c = intNat (Proxy :: Proxy c)
+      in (\(Matrix v) (rix,cix) -> (Fixed.!) v (c*rix + cix))  
+
+ixMatrix :: forall r c.(KnownNat c, KnownNat (r*c)) => Matrix r c (Int, Int)
+ixMatrix = let c = intNat (Proxy :: Proxy c)
+           in Matrix $ generate (\ix -> ix `quotRem` c)
 
 zero :: (KnownNat n, Num a) => Vector n a
 zero = pure 0

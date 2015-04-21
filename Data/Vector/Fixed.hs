@@ -15,6 +15,7 @@ module Data.Vector.Fixed
        ,singleton
        ,intNat
        ,getSize
+       ,inBounds 
        ,generate
        ,iterate
        ,replicateM
@@ -54,6 +55,8 @@ import Data.Distributive (Distributive, distribute)
 
 import Prelude hiding (iterate, tail, head, init, last, (++), reverse)
 import Control.Arrow ((***),(&&&))
+import Data.Indexed 
+
 
 newtype Vector (n :: Nat) a = Vector {forgetSize :: Vector.Vector a}
                             deriving(Show, Eq, Ord, Functor, Foldable, Traversable, NFData)
@@ -81,6 +84,16 @@ instance (KnownNat n) => IsList (Vector n a) where
                                                          "(", show nVal, ")",
                                                          " in Data.Vector.Fixed.fromList"])
 
+instance (KnownNat n) => Indexable (Vector n) where
+  type Index (Vector n) = Int
+  indices = generate id
+  v !? ix = if 0 <= ix && ix < getSize v
+            then Just $ unsafeIndex v ix
+            else Nothing
+  
+  
+
+
 sizeAgnostic :: (Vector.Vector a -> b) -> Vector n a -> b
 sizeAgnostic f = f . forgetSize
 
@@ -103,6 +116,9 @@ singleton = Vector . Vector.singleton
 getSize :: (KnownNat n) => Vector n a -> Int
 getSize (_ :: Vector n a)  = intNat (Proxy :: Proxy n)
 
+inBounds :: (KnownNat n) => Vector n a -> Int -> Bool
+inBounds v = (< getSize v)   
+
 generate :: forall n. (KnownNat n) => forall a. (Int -> a) -> Vector n a
 generate = Vector . Vector.generate (intNat (Proxy :: Proxy n))
 
@@ -121,10 +137,12 @@ unsafeIndex = sizeAgnostic Vector.unsafeIndex
 (!) :: Vector n a -> Int -> a
 v ! ix = (Vector.!) (forgetSize v) ix
 
+{-
 (!?) :: (KnownNat n) => Vector n a -> Int -> Maybe a
 v !? ix = if 0 <= ix && ix < getSize v
           then Just $ unsafeIndex v ix
           else Nothing
+-}
 
 tail :: Vector (1+n) a -> Vector n a
 tail = forgetful Vector.unsafeTail
