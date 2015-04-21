@@ -13,20 +13,14 @@ module Data.Vector.Fixed
        ,forgetSize
        ,empty
        ,getSize
-       ,generate
+       ,generate, generateM
        ,iterate
-       ,(!)
-       ,(!?)
-       ,tail
-       ,head
-       ,uncons
-       ,init
-       ,last
-       ,unsnoc
-       ,split
-       ,(++)
-       ,separate
-       ,flatten
+       ,replicateM
+       ,(!), (!?)
+       ,tail, head, uncons
+       ,init, last, unsnoc
+       ,split, (++)
+       ,separate, flatten
        ,backpermute
        ,imap
        ,reverse
@@ -66,6 +60,9 @@ unsafeIndex = sizeAgnostic Vector.unsafeIndex
 generate :: forall n. (Known n) => forall a. (Int -> a) -> Vector n a
 generate = Vector . Vector.generate (getInt (Proxy :: Proxy n))
 
+generateM :: forall m n. (Functor m, Monad m, Known n) => forall a. (Int -> m a) -> m (Vector n a)
+generateM = fmap Vector . Vector.generateM (getInt (Proxy :: Proxy n)) 
+
 instance (Known n) => Applicative (Vector n) where
   pure = Vector . Vector.replicate (getInt (Proxy :: Proxy n))
   (<*>) (Vector fs) = forgetful (Vector.zipWith ($) fs)
@@ -100,6 +97,9 @@ getSize (_ :: Vector n a)  = getInt (Proxy :: Proxy n)
 
 iterate :: forall n. (Known n) => forall a. (a -> a) -> a -> Vector n a
 iterate f = Vector . Vector.iterateN (getInt (Proxy :: Proxy n)) f
+
+replicateM :: forall m n. (Known n, Functor m, Monad m) => forall a. m a -> m (Vector n a)
+replicateM = fmap Vector . Vector.replicateM (getInt (Proxy :: Proxy n))
 
 (!) :: Vector n a -> Int -> a
 v ! ix = (Vector.!) (forgetSize v) ix
