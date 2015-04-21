@@ -38,6 +38,9 @@ ixMatrix :: forall r c.(Known c, Known (r*c)) => Matrix r c (Int, Int)
 ixMatrix = let c = getInt (Proxy :: Proxy c)
            in Matrix $ generate (\ix -> ix `quotRem` c)
 
+onRows :: (Known r, Known c) => (Vector c a -> b) -> Matrix r c a -> Vector r b
+onRows f = fmap f . separate . flattenMatrix
+
 zero :: (Known n, Num a) => Vector n a
 zero = pure 0
 

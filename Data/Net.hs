@@ -14,7 +14,7 @@ module Data.Net where
 import Data.Profunctor
 import Data.Vector.Fixed.Size
 import Data.Vector.Fixed
-import Control.Applicative 
+import Control.Applicative
 import Data.Distributive
 import Control.Category ((>>>))
 import Data.Monoid
@@ -30,8 +30,6 @@ import Prelude hiding (sum, head, foldl1, foldl, foldr)
 newtype Net (n :: Size) a b = Net {unNet :: DownStar (Vector n) a b}
                             deriving(Functor, Applicative, Monad, Profunctor)
 
-
-
 runNet :: Net n a b -> Vector n a -> b
 runNet = runDownStar . unNet
 
@@ -43,7 +41,6 @@ mkNet' f = mkNet (f . fromSingleton)
 
 instance Distributive (Net n a) where
   distribute fs = mkNet (\ps -> (\f -> (runNet f ps)) <$> fs)
-
 
 --  A version of <*> that separates the arguments
 infixl 4 <+>
@@ -70,7 +67,7 @@ explode :: (Known m, Known n) => Net m p a -> Net (n * m) p (Vector n a)
 explode net = mkNet (\v -> let fs = separate v in runNet <$> pure net <*> fs)
 
 explode' :: (Known m) => (p -> a -> b) -> Net m p (Vector m a -> Vector m b)
-explode' f = mkNet ((<*>) . fmap f) 
+explode' f = mkNet ((<*>) . fmap f)
 
 -- A version of product that separates the arguments of each sequential step
 iterateNet :: forall n m a p. (Known m, Known n, Monoid a) => Net m p a -> Net (n * m) p a
@@ -98,12 +95,11 @@ fanIn = fmap manyToOne . explode
 fanIn' :: (Known m, Monoid b) => (p -> a -> b) -> Net m p (Vector m a -> b)
 fanIn' f = mkNet (\ws xs -> fold (f <$> ws <*> xs))
 
-
 floatOut :: (Known m, Known n) => (Vector n q -> p) -> Net m p a -> Net (m * n) q a
 floatOut f = mkNet . lmap (fmap f . separate) . runNet
 
 floatOut' :: (Known m) => (Functor f) => (Vector m q -> f p) -> DownStar f p a -> Net m q a
-floatOut' f = mkNet . lmap f . runDownStar 
+floatOut' f = mkNet . lmap f . runDownStar
 
 pmap :: (Vector n p -> Vector m p) -> Net m p a -> Net n p a
 pmap f = mkNet . lmap f . runNet
