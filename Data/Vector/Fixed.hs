@@ -12,6 +12,7 @@ module Data.Vector.Fixed
        ,sizeAgnostic
        ,forgetSize
        ,empty
+       ,singleton, fromSingleton
        ,getSize
        ,generate, generateM
        ,iterate
@@ -91,6 +92,12 @@ instance (Known n) => IsList (Vector n a) where
 
 empty :: Vector (N 0) a
 empty = Vector $ Vector.empty
+
+singleton :: a -> Vector (N 1) a
+singleton = Vector . Vector.singleton
+
+fromSingleton :: Vector (N 1) a -> a
+fromSingleton = sizeAgnostic Vector.head 
 
 getSize :: (Known n) => Vector n a -> Int
 getSize (_ :: Vector n a)  = getInt (Proxy :: Proxy n)

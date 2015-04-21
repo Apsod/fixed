@@ -14,26 +14,28 @@ import Data.Proxy
 import Prelude
 
 data Size = N Nat
-          | S Size 
-          | Sum Size Size
-          | Product Size Size
+          | SizeSum Size Size
+          | SizeProduct Size Size
 
-type (a + b) = Sum a b
-type (a * b) = Product a b 
+type Zero = N 0
+type One  = S Zero 
+
+infixl 6 +
+infixl 7 *
+type (S a)   = SizeSum (N 1) a    
+type (a + b) = SizeSum a b
+type (a * b) = SizeProduct a b 
 
 class Known (a :: Size) where
   getNat :: Proxy a -> Integer
 
 instance (KnownNat a) => Known (N a) where
   getNat _ = natVal (Proxy :: Proxy a)
-
-instance (Known a) => Known (S a) where
-  getNat _ = (+1) $ getNat (Proxy :: Proxy a) 
-
-instance (Known a, Known b) => Known (Sum a b) where
+  
+instance (Known a, Known b) => Known (SizeSum a b) where
   getNat _ = getNat (Proxy :: Proxy a) + getNat (Proxy :: Proxy b)
 
-instance (Known a, Known b) => Known (Product a b) where
+instance (Known a, Known b) => Known (SizeProduct a b) where
   getNat _ = getNat (Proxy :: Proxy a) * getNat (Proxy :: Proxy b)
 
 getInt :: (Known a) => Proxy a -> Int

@@ -12,7 +12,7 @@ module Data.Vector.Fixed.Linear where
 
 
 import Data.Vector.Fixed as Fixed
-import Data.Vector.Fixed.Size hiding (Sum) 
+import Data.Vector.Fixed.Size  
 
 import Control.DeepSeq
 import Data.Foldable
