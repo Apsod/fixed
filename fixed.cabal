@@ -17,8 +17,16 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Data.Vector.Fixed
+                       Data.Vector.Fixed.Linear
+                       Data.Vector.Fixed.Size
+                       Data.Vector.Fixed.Indexed
+                       Data.Net
+                       Data.Net.FullyConnected
+                       Data.Net.RBF
+                       Data.Net.Convolutional
+                       Data.Net.Recurrent
   -- other-modules:       
   other-extensions:    DataKinds, KindSignatures, ScopedTypeVariables, TypeOperators, TypeFamilies, OverloadedLists, GeneralizedNewtypeDeriving, DeriveTraversable
-  build-depends:       base >=4.7 && <4.8, vector >=0.10 && <0.11, deepseq >=1.3 && <1.4, distributive >=0.4 && <0.5, comonad, profunctors, ad, reflection
+  build-depends:       base >=4.7 && <4.8, vector >=0.10 && <0.11, deepseq >=1.3 && <1.4, distributive >=0.4 && <0.5, comonad, profunctors, ad, reflection, mtl 
   -- hs-source-dirs:      
   default-language:    Haskell2010

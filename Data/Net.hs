@@ -107,12 +107,8 @@ pmap f = mkNet . lmap f . runNet
 errorNet :: (b -> b -> c) -> Net m w (a -> b) -> Net m w ((a,b) -> c)
 errorNet err = fmap (\f (x,y) -> err (f x) y)
 
-collectErrors :: (Functor f) => (b -> b -> c) -> Net m w (a -> b) -> f (a, b) -> Net m w (f c)
-collectErrors err net = let net' =  errorNet err net
-                        in collect (\x -> applyNet x net')
-
-summedError :: (Functor f, Foldable f, Num c) => (b -> b -> c) -> Net m w (a -> b) -> f (a, b) -> Net m w c
-summedError err net = fmap sum . collectErrors err net
+summedErrorNet :: (Foldable f, Num c) => (b -> b -> c) -> Net m w (a -> b) -> Net m w (f (a,b) -> c)
+summedErrorNet err = fmap (\f -> getSum . foldMap (Sum . f)) . errorNet err
 
 autoencodeError :: (a -> b -> c) -> Net m w (a -> b) -> Net m w (a -> c)
 autoencodeError err = fmap (\f x -> err x $ f x)
@@ -122,6 +118,9 @@ autoencodeErrorSum err = fmap (\f -> getSum .foldMap (Sum . f)) . autoencodeErro
 
 applyNet :: a -> Net m w (a -> b) -> Net m w b
 applyNet x = fmap ($x)
+
+weights :: Net n a (Vector n a)
+weights = mkNet id
 
 getGradient :: (Known m, Num a) =>
                 (forall s. Reifies s Tape => Net m (Reverse s a) (Reverse s a)) ->

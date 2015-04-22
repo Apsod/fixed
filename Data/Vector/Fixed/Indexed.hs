@@ -19,7 +19,7 @@ import Control.Comonad
 import Data.Maybe 
 
 class (Functor f) => Indexable f where
-  type Index f :: * 
+  type Index f :: *
   indices      :: f (Index f) 
   (!?)         :: f a -> (Index f) -> Maybe a
 
@@ -35,8 +35,8 @@ instance (Indexable f) => Comonad (Indexed f) where
   extract (Indexed i x) = fromJust (x !? i) 
   extend f (Indexed i x) = Indexed i ((\j -> f $ Indexed j x) <$> indices)
 
-fakeIndex :: f a -> Indexed f a 
-fakeIndex = Indexed undefined 
+index :: f a -> Indexed f a 
+index = Indexed undefined
 
 forgetIndex :: Indexed f a -> f a
 forgetIndex (Indexed _ x) = x
@@ -45,4 +45,4 @@ experiment :: (Functor g, Indexable f) => (Index f -> g (Index f)) -> Indexed f 
 experiment f (Indexed i x) = fmap (x!?) (f i)  
 
 convolution :: (Indexable f) => (Indexed f a -> b) -> f a -> f b
-convolution f = forgetIndex . extend f . fakeIndex 
+convolution f = forgetIndex . extend f . index 

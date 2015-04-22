@@ -17,8 +17,8 @@ module Data.Vector.Fixed
        ,generate, generateM
        ,iterate
        ,replicateM
-       ,(!), (!?)
-       ,tail, head, uncons
+       ,(!)
+       ,tail, head, uncons, cons
        ,init, last, unsnoc
        ,split, (++)
        ,separate, flatten
@@ -42,6 +42,7 @@ import Control.Applicative (Applicative, (<$>), pure, (<*>))
 import Data.Distributive (Distributive, distribute)
 
 import Data.Vector.Fixed.Size 
+import Data.Vector.Fixed.Indexed
 
 import Prelude hiding (iterate, tail, head, init, last, (++), reverse)
 import Control.Arrow ((***),(&&&))
@@ -90,6 +91,13 @@ instance (Known n) => IsList (Vector n a) where
            hasLength n xs = let (prefix, suffix) = Prelude.splitAt n xs
                             in null suffix && length prefix == n
 
+instance (Known n) => Indexable (Vector n) where
+  type Index (Vector n) = Int
+  indices      = generate id 
+  v !? ix = if 0 <= ix && ix < getSize v
+          then Just $ unsafeIndex v ix
+          else Nothing
+
 empty :: Vector (N 0) a
 empty = Vector $ Vector.empty
 
@@ -111,11 +119,6 @@ replicateM = fmap Vector . Vector.replicateM (getInt (Proxy :: Proxy n))
 (!) :: Vector n a -> Int -> a
 v ! ix = (Vector.!) (forgetSize v) ix
 
-(!?) :: (Known n) => Vector n a -> Int -> Maybe a
-v !? ix = if 0 <= ix && ix < getSize v
-          then Just $ unsafeIndex v ix
-          else Nothing
-
 tail :: Vector (S n) a -> Vector n a
 tail = forgetful Vector.unsafeTail
 
@@ -124,6 +127,9 @@ head = sizeAgnostic Vector.unsafeHead
 
 uncons :: Vector (S n) a -> (a, Vector n a)
 uncons = (head &&& tail)
+
+cons :: a -> Vector n a -> Vector (S n) a
+cons x = forgetful (Vector.cons x)   
 
 init :: Vector (S n) a -> Vector n a
 init = forgetful Vector.unsafeInit
