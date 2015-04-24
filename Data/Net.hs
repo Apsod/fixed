@@ -24,7 +24,6 @@ import Data.Reflection
 import Numeric.AD
 import Numeric.AD.Internal.Reverse
 
-
 import Prelude hiding (sum, head, foldl1, foldl, foldr)
 
 newtype Net (n :: Size) a b = Net {unNet :: DownStar (Vector n) a b}
@@ -49,7 +48,7 @@ f <+> x = mkNet (\v -> let (fp, xp) = split v in runNet f fp $ runNet x xp)
 
 -- A version of >>= that separates the arguments
 infixl 1 >>+
-(>>+) :: (Known m) => Net m w a -> (a -> Net n w b) -> Net(m + n) w b
+(>>+) :: (Known m) => Net m w a -> (a -> Net n w b) -> Net (m + n) w b
 x >>+ f = mkNet (\v -> let (xp, fp) = split v in runNet(f $ runNet x xp) fp)
 
 -- A version of composition (.) that separates the arguments
@@ -101,6 +100,7 @@ floatOut f = mkNet . lmap (fmap f . separate) . runNet
 floatOut' :: (Known m) => (Functor f) => (Vector m q -> f p) -> DownStar f p a -> Net m q a
 floatOut' f = mkNet . lmap f . runDownStar
 
+-- Transform the parameterse of a network 
 pmap :: (Vector n p -> Vector m p) -> Net m p a -> Net n p a
 pmap f = mkNet . lmap f . runNet
 
@@ -114,7 +114,7 @@ autoencodeError :: (a -> b -> c) -> Net m w (a -> b) -> Net m w (a -> c)
 autoencodeError err = fmap (\f x -> err x $ f x)
 
 autoencodeErrorSum :: (Functor f, Foldable f, Num c) => (a -> b -> c) -> Net m w (a -> b) -> Net m w (f a -> c)
-autoencodeErrorSum err = fmap (\f -> getSum .foldMap (Sum . f)) . autoencodeError err
+autoencodeErrorSum err = fmap (\f -> getSum . foldMap (Sum . f)) . autoencodeError err
 
 applyNet :: a -> Net m w (a -> b) -> Net m w b
 applyNet x = fmap ($x)

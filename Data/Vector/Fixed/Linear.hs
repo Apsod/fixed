@@ -16,7 +16,7 @@ import Data.Vector.Fixed.Size
 import Data.Vector.Fixed.Indexed
 
 import Control.DeepSeq
-import Data.Foldable
+import Data.Foldable hiding (sum) 
 import Data.Traversable
 import Control.Applicative
 import Data.Monoid
@@ -40,6 +40,9 @@ instance (Known r, Known c) => Indexable (Matrix r c) where
                       cix <  getInt (Proxy :: Proxy r)
                then Just (m ! (rix,cix))
                else Nothing
+
+sum :: (Foldable f, Num a) => f a -> a 
+sum = foldl' (+) 0 
 
 (!) :: forall c. Known c => forall r a. Matrix r c a -> (Int, Int) -> a
 (!) = let c = getInt (Proxy :: Proxy c)

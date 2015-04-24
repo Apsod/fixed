@@ -23,3 +23,8 @@ normalizedGaussianRBF :: (Known r, Known c, Floating a) => Net (r + r*c) a (Vect
 normalizedGaussianRBF = (\betas dist v ->  normalize1 $ (\b d -> exp (b * d)) <$> betas <*> dist v)
                         <$> mkNet (fmap (negate . abs))
                         <+> distLayer norm2Square
+
+normalizedGaussianRBF' :: (Known r, Known c, Floating a) => Net (r + r*c) a (Vector c a -> Vector r a)
+normalizedGaussianRBF' = (\betas dist v ->  normalize1 $ (\b d -> exp (b * d)) <$> betas <*> dist v)
+                         <$> mkNet (fmap (negate . abs))
+                         <+> distLayer norm2Square

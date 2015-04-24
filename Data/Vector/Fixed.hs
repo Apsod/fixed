@@ -50,9 +50,11 @@ import Control.Arrow ((***),(&&&))
 newtype Vector (n :: Size) a = Vector {forgetSize :: Vector.Vector a}
                             deriving(Show, Eq, Ord, Functor, Foldable, Traversable, NFData)
 
+{-# INLINE forgetful#-}
 forgetful :: (Vector.Vector a -> Vector.Vector b) -> Vector n a -> Vector m b
 forgetful f = Vector . sizeAgnostic f
 
+{-# INLINE sizeAgnostic#-}
 sizeAgnostic :: (Vector.Vector a -> b) -> Vector n a -> b
 sizeAgnostic f = f . forgetSize
 
@@ -67,6 +69,7 @@ generateM = fmap Vector . Vector.generateM (getInt (Proxy :: Proxy n))
 
 instance (Known n) => Applicative (Vector n) where
   pure = Vector . Vector.replicate (getInt (Proxy :: Proxy n))
+  {-# INLINE (<*>) #-}
   (<*>) (Vector fs) = forgetful (Vector.zipWith ($) fs)
 
 instance (Known n) => Distributive (Vector n) where
