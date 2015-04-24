@@ -1,24 +1,21 @@
-{-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE KindSignatures             #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TypeOperators              #-}
-{-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE OverloadedLists            #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE DeriveTraversable          #-}
 {-# LANGUAGE Rank2Types                 #-}
 {-# LANGUAGE FlexibleContexts           #-}
 
 module Data.Net where
 
 import Data.Profunctor
-import Data.Vector.Fixed.Size
-import Data.Vector.Fixed
 import Control.Applicative
 import Data.Distributive
 import Control.Category ((>>>))
-import Data.Monoid
+import Data.Monoid hiding (Product)
 import Data.Foldable
+import Data.Traversable
+
+import Data.Functor.Compose
+import Data.Functor.Product
+import Data.Functor.Identity
 
 import Data.Reflection
 import Numeric.AD
@@ -26,85 +23,87 @@ import Numeric.AD.Internal.Reverse
 
 import Prelude hiding (sum, head, foldl1, foldl, foldr)
 
-newtype Net (n :: Size) a b = Net {unNet :: DownStar (Vector n) a b}
+newtype Net f a b = Net {unNet :: DownStar f a b}
                             deriving(Functor, Applicative, Monad, Profunctor)
 
-runNet :: Net n a b -> Vector n a -> b
+type (f + g) = Product f g
+type (f * g) = Compose f g
+
+runNet :: Net f a b -> f a -> b
 runNet = runDownStar . unNet
 
-mkNet :: (Vector n a -> b) -> Net n a b
+mkNet :: (f a -> b) -> Net f a b
 mkNet = Net . DownStar
 
-mkNet' :: (a -> b) -> Net (N 1) a b
-mkNet' f = mkNet (f . fromSingleton)
+mkNet' :: (a -> b) -> Net Identity a b
+mkNet' f = mkNet (f . runIdentity)
 
 instance Distributive (Net n a) where
   distribute fs = mkNet (\ps -> (\f -> (runNet f ps)) <$> fs)
 
 --  A version of <*> that separates the arguments
 infixl 4 <+>
-(<+>) :: (Known m) => Net m w (a -> b) -> Net n w a -> Net (m + n) w b
-f <+> x = mkNet (\v -> let (fp, xp) = split v in runNet f fp $ runNet x xp)
+(<+>) :: Net f w (a -> b) -> Net g w a -> Net (f + g) w b
+f <+> x = mkNet (\(Pair fp xp) -> runNet f fp $ runNet x xp)
 
 -- A version of >>= that separates the arguments
 infixl 1 >>+
-(>>+) :: (Known m) => Net m w a -> (a -> Net n w b) -> Net (m + n) w b
-x >>+ f = mkNet (\v -> let (xp, fp) = split v in runNet(f $ runNet x xp) fp)
+(>>+) :: Net f w a -> (a -> Net g w b) -> Net (f + g) w b
+x >>+ f = mkNet (\(Pair xp fp) -> runNet(f $ runNet x xp) fp)
 
 -- A version of composition (.) that separates the arguments
 infixr 9 <|
-(<|) :: (Known m) => Net m w (b -> c) -> Net n w (a -> b) -> Net (m + n) w (a -> c)
+(<|) :: Net f w (b -> c) -> Net g w (a -> b) -> Net (f + g) w (a -> c)
 bc <| ab = (.) <$> bc <+> ab
-
 -- A forward version of composition that separates the arguments
 infixl 0 |>
-(|>) :: (Known m) => Net m w (a -> b) -> Net n w (b -> c) -> Net (m + n) w (a -> c)
+
+(|>) :: Net f w (a -> b) -> Net g w (b -> c) -> Net (f + g) w (a -> c)
 ab |> bc = (>>>) <$> ab <+> bc
 
 -- A version of distribute that separates the arguments
-explode :: (Known m, Known n) => Net m p a -> Net (n * m) p (Vector n a)
-explode net = mkNet (\v -> let fs = separate v in runNet <$> pure net <*> fs)
+explode :: (Applicative g) => Net f p a -> Net (g * f) p (g a)
+explode net = mkNet (\(Compose fs) -> runNet <$> pure net <*> fs)
 
-explode' :: (Known m) => (p -> a -> b) -> Net m p (Vector m a -> Vector m b)
+explode' :: (Applicative f) => (p -> a -> b) -> Net f p (f a -> f b)
 explode' f = mkNet ((<*>) . fmap f)
 
 -- A version of product that separates the arguments of each sequential step
-iterateNet :: forall n m a p. (Known m, Known n, Monoid a) => Net m p a -> Net (n * m) p a
+iterateNet :: (Applicative g, Foldable g, Monoid a) => Net f p a -> Net (g * f) p a
 iterateNet net = fmap fold $ explode net
 
 -- A version of fold that separates the arguments of each sequential step
-foldNet :: forall n m a b p. (Known m, Known n) => (a -> b -> b) -> b -> Net m p a -> Net (n * m) p b
+foldNet :: (Applicative g, Foldable g) => (a -> b -> b) -> b -> Net f p a -> Net (g * f) p b
 foldNet f z net = fmap (foldr f z) $  explode net
 
 oneToMany :: (Functor f) => f (a -> b) -> a -> f b
 oneToMany fs x = fmap ($x) fs
 
-fanOut :: (Known m, Known n) => Net m p (a -> b) -> Net (n * m) p (a -> Vector n b)
+fanOut :: (Applicative g) => Net f p (a -> b) -> Net (g * f) p (a -> g b)
 fanOut = fmap oneToMany . explode
 
-fanOut' :: (Known m) => (p -> a -> b) -> Net m p (a -> Vector m b)
+fanOut' :: (Functor f) => (p -> a -> b) -> Net f p (a -> f b)
 fanOut' f = mkNet (\ws x -> (\w -> f w x) <$> ws)
 
 manyToOne :: (Foldable f, Applicative f, Monoid b) => f (a -> b) -> f a -> b
 manyToOne fs xs = fold (fs <*> xs)
 
-fanIn :: (Known m, Known n, Monoid b) => Net m p (a -> b) -> Net (n * m) p (Vector n a -> b)
+fanIn :: (Applicative g, Foldable g, Monoid b) => Net f p (a -> b) -> Net (g * f) p (g a -> b)
 fanIn = fmap manyToOne . explode
 
-fanIn' :: (Known m, Monoid b) => (p -> a -> b) -> Net m p (Vector m a -> b)
+fanIn' :: (Applicative f, Foldable f, Monoid b) => (p -> a -> b) -> Net f p (f a -> b)
 fanIn' f = mkNet (\ws xs -> fold (f <$> ws <*> xs))
 
-floatOut :: (Known m, Known n) => (Vector n q -> p) -> Net m p a -> Net (m * n) q a
-floatOut f = mkNet . lmap (fmap f . separate) . runNet
+floatOut :: (Functor f) => (g a -> b) -> Net f b c -> Net (Compose f g) a c
+floatOut f = mkNet . lmap (fmap f . getCompose) . runNet
 
-floatOut' :: (Known m) => (Functor f) => (Vector m q -> f p) -> DownStar f p a -> Net m q a
-floatOut' f = mkNet . lmap f . runDownStar
-
--- Transform the parameterse of a network 
-pmap :: (Vector n p -> Vector m p) -> Net m p a -> Net n p a
+pmap :: (g q -> f p) -> Net f p a -> Net g q a
 pmap f = mkNet . lmap f . runNet
 
-errorNet :: (b -> b -> c) -> Net m w (a -> b) -> Net m w ((a,b) -> c)
+weights :: Net f a (f a)
+weights = mkNet id
+
+errorNet :: (b -> b -> c) -> Net f w (a -> b) -> Net f w ((a,b) -> c)
 errorNet err = fmap (\f (x,y) -> err (f x) y)
 
 summedErrorNet :: (Foldable f, Num c) => (b -> b -> c) -> Net m w (a -> b) -> Net m w (f (a,b) -> c)
@@ -119,10 +118,7 @@ autoencodeErrorSum err = fmap (\f -> getSum . foldMap (Sum . f)) . autoencodeErr
 applyNet :: a -> Net m w (a -> b) -> Net m w b
 applyNet x = fmap ($x)
 
-weights :: Net n a (Vector n a)
-weights = mkNet id
-
-getGradient :: (Known m, Num a) =>
-                (forall s. Reifies s Tape => Net m (Reverse s a) (Reverse s a)) ->
-                Vector m a -> Vector m a
+getGradient :: (Traversable f, Num a) =>
+                (forall s. Reifies s Tape => Net f (Reverse s a) (Reverse s a)) ->
+                f a -> f a
 getGradient net = grad (runNet net)

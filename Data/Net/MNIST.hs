@@ -17,8 +17,8 @@ import Data.Profunctor
 import Control.Monad as Monad
 
 import Data.Vector.Fixed.Linear
-import Data.Vector.Fixed
-import Data.Vector.Fixed.Size
+import Data.Vector.Fixed hiding ((!))
+import Data.Vector.Fixed.Size (Known, Size(..)) 
 import Data.Vector.Fixed.Indexed
 
 import Data.Net
@@ -57,45 +57,26 @@ fromWord = (/255) . fromIntegral
 oneHot :: (Num a) => Word8 -> Vector (N 10) a
 oneHot n = generate (\ix -> if fromIntegral n == ix then 1 else 0)
 
-net :: (Known r, Known c, Known m, Known n, Erf a) =>
-       Net (((N 4 * n) + (N 4 * n) * (m + (N 4 * n))) +
-            ((N 4 * m) + (N 4 * m) * (m + (N 4 * n))) +
-            (m + m))
-       a
-       (Matrix r c Word8 -> State (Matrix r c (Vector m a)) [Matrix r c (Vector m a)])
-net = fmap (lmap (fmap (separate . pure . fromWord))) ((fmap (fmap (fmap snd)) . (\s -> unrollStateN s 5)) <$> tot)
-
-net' :: (Known r, Known c, Known m, Known n, Erf a)
-        => Net
-        (((N 4 * n) + (N 4 * n) * (m + (N 4 * n))) +
-         ((N 4 * m) + (N 4 * m) * (m + (N 4 * n))) +
-         (m + m) + (r * c * m))
-        a
-        (Matrix r c Word8 -> [Vector m a])
-net' = (\f s0 x -> evalState (fmap (fmap $ foldl1 add) $ f x) (Matrix $ separate s0))
-       <$> net
-       <+> mkNet id
+iterateN :: (a -> a) -> Int -> (a -> a)
+iterateN f = go
+  where go 0 = id
+        go n = go (n-1) . f 
 
 main :: IO ()
 main = do
   [tp, lp] <- getArgs
   images <- imageFromFile tp
   labels <- labelFromFile lp
-  p0 <- runIO (generateRandom (Random standard)) :: IO
-                                                    (Vector 
-                                                     (((N 4 * N 5) + (N 4 * N 5) * (N 10 + (N 4 * N 5))) +
-                                                      ((N 4 * N 10) + (N 4 * N 10) * (N 10 + (N 4 * N 5))) +
-                                                      (N 10 + N 10) + (N 28 * N 28 * N 10))
-                                                     Double)
+  p0 <- runIO (generateRandom (Random standard)) :: IO (((Vector (N 20) + (Vector (N 20) * (Matrix (Odd (N 1)) (Odd (N 1))* Vector (N 20)))) +
+                                                         (Vector (N 10) + (Vector (N 10) * Vector (N 20)))) Double)
   let n :: (Erf a) => Net
-           (((N 4 * N 5) + (N 4 * N 5) * (N 10 + (N 4 * N 5))) +
-            ((N 4 * N 10) + (N 4 * N 10) * (N 10 + (N 4 * N 5))) +
-            (N 10 + N 10) + (N 28 * N 28 * N 10))
+           ((Vector (N 20) + (Vector (N 20) * (Matrix (Odd (N 1)) (Odd (N 1))* Vector (N 20)))) +
+            (Vector (N 10) + (Vector (N 10) * Vector (N 20))))
            a
            a
-      n = applyNet (take 1 $ zipWith (\i l -> (i, oneHot l)) images labels) (summedErrorNet dist1 (fmap (fmap (Prelude.last)) net'))
-      --g = getGradient n
-  print $  runNet n p0
+      n = applyNet (Prelude.head $ zipWith (\i l -> (i, oneHot l)) images labels) (errorNet dist1 $ (\f g -> g . (!(14,14)) . (iterateN f 10) . fmap (pure .fromWord)) <$> squareConv <+> fullyConnectedLayer' erf)
+      g = getGradient n
+  print . Data.Foldable.toList $  g p0
 
 
 data Type = Unsigned
@@ -156,5 +137,5 @@ runOn rx g = runST (runRandom rx g)
 runIO :: Random a -> IO a
 runIO = withSystemRandom . runRandom
 
-generateRandom :: (Known n) => Random a -> Random (Vector n a)
+--generateRandom :: (Known n) => Random a -> Random (Vector n a)
 generateRandom r = sequenceA $ pure r

@@ -27,11 +27,11 @@ library
                        Data.Net.Recurrent
   -- other-modules:       
   other-extensions:    DataKinds, KindSignatures, ScopedTypeVariables, TypeOperators, TypeFamilies, OverloadedLists, GeneralizedNewtypeDeriving, DeriveTraversable
-  build-depends:       base >=4.7 && <4.8, vector >=0.10 && <0.11, deepseq >=1.3 && <1.4, distributive >=0.4 && <0.5, comonad, profunctors, ad, reflection, mtl, bytestring, binary, mwc-random, erf
+  build-depends:       base >=4.7 && <4.8, vector >=0.10 && <0.11, deepseq >=1.3 && <1.4, distributive >=0.4 && <0.5, comonad, profunctors, ad, reflection, mtl, bytestring, binary, mwc-random, erf, transformers
   -- hs-source-dirs:      
   default-language:    Haskell2010
 
 executable main
   main-is:             Data/Net/MNIST.hs
   ghc-options:         -O2 -rtsopts -threaded -prof -fprof-auto
-  build-depends:       base >=4.7 && <4.8, vector >=0.10 && <0.11, deepseq >=1.3 && <1.4, distributive >=0.4 && <0.5, comonad, profunctors, ad, reflection, mtl, bytestring, binary, mwc-random, erf
+  build-depends:       base >=4.7 && <4.8, vector >=0.10 && <0.11, deepseq >=1.3 && <1.4, distributive >=0.4 && <0.5, comonad, profunctors, ad, reflection, mtl, bytestring, binary, mwc-random, erf, transformers
