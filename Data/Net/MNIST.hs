@@ -11,43 +11,27 @@ import qualified Data.ByteString.Lazy as Lazy
 import Data.Binary.Get
 
 import Control.Applicative
-import Data.Distributive
 import Control.Comonad
-import Data.Profunctor
 import Control.Monad as Monad
 
 import Data.Vector.Fixed.Linear
 import Data.Vector.Fixed hiding ((!))
-import Data.Vector.Fixed.Size (Known, Size(..)) 
-import Data.Vector.Fixed.Indexed
+import Data.Vector.Fixed.Size (Size(..)) 
 
 import Data.Net
 import Data.Net.FullyConnected
-import Data.Net.RBF
 import Data.Net.Convolutional
-
-import Data.Proxy
-import Data.Word
-import Data.Maybe
-
-import Control.Arrow ((***))
-
 
 import System.Environment
 
 import Control.Monad.ST
 import System.Random.MWC
-import System.Random.MWC.CondensedTable
 import System.Random.MWC.Distributions
 
 import Data.Traversable
 import Data.Foldable
 
 import Data.Number.Erf
-import Numeric.AD
-
-
-import Control.Monad.State.Strict (State, evalState, execState)
 
 import Prelude hiding(sum, foldl1)
 
@@ -62,22 +46,22 @@ iterateN f = go
   where go 0 = id
         go n = go (n-1) . f 
 
+type ParameterSpace = ((Vector (N 20) + (Vector (N 20) * (Matrix (Odd (N 1)) (Odd (N 1))* Vector (N 20)))) +
+                       (Vector (N 10) + (Vector (N 10) * Vector (N 20))))
+
 main :: IO ()
 main = do
   [tp, lp] <- getArgs
   images <- imageFromFile tp
   labels <- labelFromFile lp
-  p0 <- runIO (generateRandom (Random standard)) :: IO (((Vector (N 20) + (Vector (N 20) * (Matrix (Odd (N 1)) (Odd (N 1))* Vector (N 20)))) +
-                                                         (Vector (N 10) + (Vector (N 10) * Vector (N 20)))) Double)
+  p0 <- runIO (generateRandom (Random standard)) :: IO (ParameterSpace Double)
   let n :: (Erf a) => Net
-           ((Vector (N 20) + (Vector (N 20) * (Matrix (Odd (N 1)) (Odd (N 1))* Vector (N 20)))) +
-            (Vector (N 10) + (Vector (N 10) * Vector (N 20))))
+           ParameterSpace
            a
            a
-      n = applyNet (Prelude.head $ zipWith (\i l -> (i, oneHot l)) images labels) (errorNet dist1 $ (\f g -> g . (!(14,14)) . (iterateN f 10) . fmap (pure .fromWord)) <$> squareConv <+> fullyConnectedLayer' erf)
-      g = getGradient n
-  print . Data.Foldable.toList $  g p0
-
+      n = applyNet (Prelude.take 2 $ zipWith (\i l -> (i, oneHot l)) images labels) (summedErrorNet dist1 $ (\f g -> g . (!(14,14)) . (iterateN f 10) . fmap (pure .fromWord)) <$> squareConv <+> fullyConnectedLayer' erf)
+      gradient = getGradient n
+  print . Data.Foldable.toList $ gradient p0
 
 data Type = Unsigned
           | Signed
@@ -137,5 +121,5 @@ runOn rx g = runST (runRandom rx g)
 runIO :: Random a -> IO a
 runIO = withSystemRandom . runRandom
 
---generateRandom :: (Known n) => Random a -> Random (Vector n a)
+generateRandom :: (Applicative f, Traversable f) => Random a -> Random (f a)
 generateRandom r = sequenceA $ pure r
